@@ -837,52 +837,5 @@ ensure_dir(F) ->
             end
     end.
 
--ifdef(dirty_file_nif).
 list_dir(Dir) ->
     file:list_dir(Dir).
--else.
-list_dir(Dir) ->
-    list_dir(Dir, 1).
-
-list_dir(_, 0) ->
-    {error, efile_driver_unavailable};
-list_dir(Directory, Retries) when is_integer(Retries), Retries > 0 ->
-    Port = get_efile_port(),
-    case prim_file:list_dir(Port, Directory) of
-        {error, einval} ->
-            clear_efile_port(),
-            list_dir(Directory, Retries-1);
-        Result ->
-            Result
-    end.
-
-get_efile_port() ->
-    Key = bitcask_efile_port,
-    case get(Key) of
-        undefined ->
-            case prim_file_drv_open("efile", [binary]) of
-                {ok, Port} ->
-                    put(Key, Port),
-                    get_efile_port();
-                Err ->
-                    error_logger:error_msg("get_efile_port: ~p\n", [Err]),
-                    timer:sleep(1000),
-                    get_efile_port()
-            end;
-        Port ->
-            Port
-    end.
-
-clear_efile_port() ->
-    erase(bitcask_efile_port).
-
-prim_file_drv_open(Driver, Portopts) ->
-    try erlang:open_port({spawn, Driver}, Portopts) of
-        Port ->
-            {ok, Port}
-    catch
-        error:Reason ->
-            {error, Reason}
-    end.
-
--endif.
